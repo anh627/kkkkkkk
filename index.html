@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Animated Background Demo</title>
+<style>
+  :root{
+    --bg-img: bacground1.jpg
+    --overlay-dark: rgba(6,10,20,0.18);
+    --accent-glow: rgba(255,255,255,0.08);
+    --height: 100vh;
+  }
+
+  /* Basic reset */
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;width:100%;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
+
+  /* Fullscreen background container */
+  .bg-wrap{
+    position:fixed;
+    inset:0;
+    overflow:hidden;
+    z-index:0;
+    background-color:#000;
+    display:block;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+  }
+
+  /* Base background image with subtle ken-burns and pan */
+  .bg-image{
+    position:absolute;
+    inset:0;
+    background-image: var(--bg-img);
+    background-size:cover;
+    background-position: center 45%;
+    transform-origin: center;
+    will-change: transform, filter;
+    filter: contrast(1.03) saturate(1.06) brightness(1.01);
+    animation: slowZoom 40s linear infinite alternate;
+  }
+
+  @keyframes slowZoom{
+    0% { transform: scale(1) translate3d(0,0,0); }
+    100% { transform: scale(1.06) translate3d(-2%, -1.5%,0); }
+  }
+
+  /* gentle horizontal drift to simulate parallax / movement */
+  .bg-drift{
+    position:absolute; inset:0;
+    background-image: var(--bg-img);
+    background-repeat:no-repeat;
+    background-size: 140% auto;
+    background-position: 50% 50%;
+    opacity:0.12;
+    mix-blend-mode: screen;
+    filter: blur(10px) saturate(1.2);
+    animation: drift 25s ease-in-out infinite alternate;
+    pointer-events:none;
+  }
+  @keyframes drift{
+    0%{ transform: translateX(0) translateY(0) }
+    100%{ transform: translateX(-3%) translateY(1.2%) }
+  }
+
+  /* overlay to add mood & make foreground text readable */
+  .bg-overlay{
+    position:absolute;inset:0;
+    background: linear-gradient(180deg, rgba(2,6,26,0.0) 0%, rgba(2,6,26,0.15) 60%, rgba(2,6,26,0.35) 100%);
+    mix-blend-mode: multiply;
+    pointer-events:none;
+  }
+
+  /* starfield canvas (top layer) */
+  #stars{
+    position:absolute; inset:0;
+    z-index:2;
+    pointer-events:none;
+  }
+
+  /* animated rainbow shimmer (subtle moving radial gradient) */
+  .rainbow-shimmer{
+    position:absolute; inset:0;
+    z-index:1;
+    pointer-events:none;
+    background: radial-gradient(600px 200px at 50% 42%,
+      rgba(255,255,255,0.06) 0%,
+      rgba(255,255,255,0.02) 8%,
+      transparent 20%);
+    mix-blend-mode: screen;
+    animation: shimmer 7.5s linear infinite;
+    filter: blur(12px) saturate(1.15);
+  }
+  @keyframes shimmer{
+    0% { transform: translateX(-10%) scale(1) translateY(0); opacity:0.8 }
+    50% { transform: translateX(10%) scale(1.02) translateY(-0.6%); opacity:0.95 }
+    100% { transform: translateX(-10%) scale(1) translateY(0); opacity:0.8 }
+  }
+
+  /* subtle rainbow band sliding across */
+  .rainbow-band{
+    position:absolute; left:-30%; top:20%;
+    width:160%; height:30%;
+    z-index:1;
+    pointer-events:none;
+    background: conic-gradient(from 180deg at 50% 50%,
+      rgba(255,0,110,0.06) 0deg,
+      rgba(255,100,0,0.06) 60deg,
+      rgba(255,220,0,0.06) 120deg,
+      rgba(0,220,140,0.06) 180deg,
+      rgba(0,150,255,0.06) 240deg,
+      rgba(130,0,255,0.06) 300deg,
+      rgba(255,0,110,0.06) 360deg);
+    filter: blur(18px) saturate(1.3);
+    transform: rotate(-6deg) translateZ(0);
+    animation: rainbowMove 12s linear infinite;
+    mix-blend-mode: screen;
+  }
+  @keyframes rainbowMove{
+    0% { transform: translateX(-10%) rotate(-6deg) }
+    100% { transform: translateX(10%) rotate(-6deg) }
+  }
+
+  /* water reflection / ripple canvas at bottom area */
+  #water-reflect{
+    position:absolute;
+    left:0; right:0;
+    bottom:0;
+    height:32%;
+    z-index:1;
+    pointer-events:none;
+    mix-blend-mode: overlay;
+    opacity:0.65;
+    filter: blur(0.6px) contrast(0.95);
+  }
+
+  /* Demo page content shown above background */
+  .content {
+    position:relative;
+    z-index:10;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:4vw;
+    color: #fff;
+    text-align:center;
+    pointer-events:auto;
+  }
+  .card{
+    max-width:900px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+    border-radius:14px;
+    padding:28px;
+    backdrop-filter: blur(6px) saturate(1.05);
+    box-shadow: 0 10px 30px rgba(3,8,20,0.6);
+    border:1px solid rgba(255,255,255,0.06);
+  }
+  h1{font-size:clamp(22px, 4.2vw, 36px); margin-bottom:8px; letter-spacing:0.6px}
+  p{opacity:0.95; font-size:clamp(14px,1.6vw,18px)}
+
+  /* small helper: pointer parallax hint */
+  .hint {
+    margin-top:14px;
+    font-size:12px;
+    opacity:0.8;
+  }
+
+  /* make sure everything responsive and performant */
+  @media (prefers-reduced-motion: reduce) {
+    .bg-image, .bg-drift, .rainbow-shimmer, .rainbow-band { animation: none }
+    #stars, #water-reflect { opacity:0.35 }
+  }
+
+</style>
+</head>
+<body>
+  <div class="bg-wrap" id="bgWrap" aria-hidden="true">
+    <div class="bg-image" id="bgImage" ></div>
+    <div class="bg-drift" aria-hidden="true"></div>
+
+    <canvas id="stars"></canvas>
+
+    <div class="rainbow-shimmer" aria-hidden="true"></div>
+    <div class="rainbow-band" aria-hidden="true"></div>
+
+    <canvas id="water-reflect"></canvas>
+
+    <div class="bg-overlay" aria-hidden="true"></div>
+  </div>
+
+  <!-- Example foreground content -->
+  <main class="content">
+    <div class="card">
+      <h1>Background động — Demo</h1>
+      <p>Ảnh nền được dùng từ file của bạn. Di chuột trên trang để thấy hiệu ứng parallax động. Cuộn trang vẫn giữ nền chuyển động nhẹ.</p>
+      <div class="hint">Tip: thử thay đường dẫn hình trong <code>--bg-img</code> nếu muốn đổi ảnh.</div>
+    </div>
+  </main>
+
+<script>
+/* ======================
+   Setup canvases for:
+   - starfield with twinkle
+   - water reflection ripple (simple FFT-like displacement)
+   ====================== */
+
+(function(){
+  const starsCanvas = document.getElementById('stars');
+  const waterCanvas = document.getElementById('water-reflect');
+  const bgImage = document.getElementById('bgImage');
+  const bgWrap = document.getElementById('bgWrap');
+
+  // sizing function
+  function fitCanvas(c){
+    const rect = bgWrap.getBoundingClientRect();
+    c.width = Math.round(rect.width * devicePixelRatio);
+    c.height = Math.round(rect.height * devicePixelRatio);
+    c.style.width = rect.width + 'px';
+    c.style.height = rect.height + 'px';
+  }
+  // Init
+  fitCanvas(starsCanvas);
+  fitCanvas(waterCanvas);
+
+  // STARFIELD
+  const sCtx = starsCanvas.getContext('2d');
+  sCtx.scale(devicePixelRatio, devicePixelRatio);
+
+  let stars = [];
+  function initStars(){
+    const w = starsCanvas.clientWidth;
+    const h = starsCanvas.clientHeight;
+    stars = [];
+    const count = Math.round((w*h) / 9000); // adjusts density
+    for(let i=0;i<count;i++){
+      stars.push({
+        x: Math.random()*w,
+        y: Math.random()*h*0.6, // mostly top half
+        r: Math.random()*1.4 + 0.2,
+        alpha: Math.random()*0.9 + 0.1,
+        twinkleSpeed: 0.5 + Math.random()*1.6,
+        phase: Math.random()*Math.PI*2
+      });
+    }
+  }
+  initStars();
+
+  // STAR DRAW
+  let lastTime = 0;
+  function drawStars(t){
+    const dt = (t - lastTime) / 1000 || 0.016;
+    lastTime = t;
+    sCtx.clearRect(0,0,starsCanvas.clientWidth, starsCanvas.clientHeight);
+    for(let i=0;i<stars.length;i++){
+      const st = stars[i];
+      st.phase += dt * st.twinkleSpeed;
+      const a = 0.6*st.alpha + 0.4*st.alpha * Math.sin(st.phase);
+      sCtx.beginPath();
+      sCtx.fillStyle = `rgba(255,255,255,${a})`;
+      sCtx.arc(st.x, st.y, st.r, 0, Math.PI*2);
+      sCtx.fill();
+
+      // subtle cross flare for some brighter stars
+      if(st.r > 1.2 && Math.random() < 0.008){
+        sCtx.beginPath();
+        sCtx.fillStyle = `rgba(255,250,220,${a*0.18})`;
+        sCtx.ellipse(st.x, st.y, st.r*2.8, st.r*0.6, 0, 0, Math.PI*2);
+        sCtx.fill();
+      }
+    }
+    requestAnimationFrame(drawStars);
+  }
+  requestAnimationFrame(drawStars);
+
+  // WATER REFLECTION (simple wave displacement drawing a clipped scaled copy of background)
+  const wCtx = waterCanvas.getContext('2d');
+  wCtx.scale(devicePixelRatio, devicePixelRatio);
+
+  // We'll create an offscreen image element for the background so we can sample it
+  const bgImgUrl = getComputedStyle(bgImage).backgroundImage.replace(/^url\(["']?/, '').replace(/["']?\)$/, '');
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.src = bgImgUrl;
+
+  let wavePhase = 0;
+  function drawWater(){
+    const cw = waterCanvas.clientWidth;
+    const ch = Math.round(waterCanvas.clientHeight * 0.32); // only lower portion used visually
+    wCtx.clearRect(0,0,waterCanvas.clientWidth, waterCanvas.clientHeight);
+
+    if(!img.complete){
+      requestAnimationFrame(drawWater);
+      return;
+    }
+
+    // draw a flipped & scaled copy of the background image into the bottom area
+    // We'll draw the image full canvas, then mask to bottom rect and add ripples via sin column displacement
+    const scale = Math.max(cw / img.width, (waterCanvas.clientHeight) / img.height);
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    const dx = (cw - dw)/2;
+    const dy = - (dh * 0.07); // lift the copy a bit to align horizon
+
+    // Draw the flipped image (vertical flip)
+    wCtx.save();
+    wCtx.translate(cw/2, 0);
+    wCtx.scale(-1, 1); // small horizontal flip to add variety
+    wCtx.translate(-cw/2, 0);
+    wCtx.drawImage(img, dx, dy, dw, dh);
+    wCtx.restore();
+
+    // Create ripple displacement by copying horizontal slices with offsets
+    const rippleHeight = Math.min(waterCanvas.clientHeight, 240);
+    const startY = waterCanvas.clientHeight - rippleHeight;
+    const sliceH = 2;
+    wavePhase += 0.02;
+    for(let y=0; y<rippleHeight; y += sliceH){
+      const amt = Math.sin((y*0.02) + wavePhase) * (1.8 + Math.sin(wavePhase*0.4)*0.7);
+      // copy slice to slightly shifted area
+      const sy = startY + y;
+      const sh = sliceH;
+      const sx = 0;
+      const sw = cw;
+      const dx2 = Math.round(amt);
+      // get image data slice
+      const imageData = wCtx.getImageData(sx, sy, sw, sh);
+      // clear then put with offset (wrap)
+      wCtx.clearRect(sx, sy, sw, sh);
+      wCtx.putImageData(imageData, dx2, sy);
+    }
+
+    // overlay subtle blur & gradient to blend
+    wCtx.fillStyle = "rgba(4,8,14,0.08)";
+    wCtx.fillRect(0, waterCanvas.clientHeight - rippleHeight, cw, rippleHeight);
+
+    requestAnimationFrame(drawWater);
+  }
+  requestAnimationFrame(drawWater);
+
+  // Resize handling
+  let resizeTimer;
+  function handleResize(){
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(()=>{
+      fitCanvas(starsCanvas);
+      fitCanvas(waterCanvas);
+      sCtx.setTransform(1,0,0,1,0,0); sCtx.scale(devicePixelRatio, devicePixelRatio);
+      wCtx.setTransform(1,0,0,1,0,0); wCtx.scale(devicePixelRatio, devicePixelRatio);
+      initStars();
+    }, 120);
+  }
+  window.addEventListener('resize', handleResize);
+
+  /* ================
+     Parallax interaction (mouse & tilt)
+     ================ */
+  let mouseX = 0, mouseY = 0;
+  const parallaxStrength = 18; // px
+  function onMove(e){
+    const rect = bgWrap.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    mouseX = x; mouseY = y;
+  }
+  window.addEventListener('pointermove', onMove, {passive:true});
+
+  // Apply smooth parallax to background elements
+  let px = 0, py = 0;
+  function rafParallax(){
+    px += (mouseX - px) * 0.06;
+    py += (mouseY - py) * 0.06;
+    const tx = px * parallaxStrength;
+    const ty = py * parallaxStrength;
+
+    // Move the bg-image slightly (translate + rotate subtly)
+    bgImage.style.transform = `scale(1.04) translate3d(${tx}px, ${ty*0.6}px, 0)`;
+    // drift layer moves more for depth effect
+    document.querySelector('.bg-drift').style.transform = `translate3d(${tx*0.6}px, ${ty*0.35}px, 0)`;
+    // rainbow band slight parallax
+    document.querySelector('.rainbow-band').style.transform = `translateX(${tx*1.2}px) rotate(-6deg)`;
+    requestAnimationFrame(rafParallax);
+  }
+  rafParallax();
+
+  // Optional: subtle movement on scroll to create depth (parallax on scroll)
+  window.addEventListener('scroll', () => {
+    const sc = window.scrollY / (document.body.scrollHeight - window.innerHeight);
+    // move background vertical position based on scroll
+    const yPos = 45 + sc*8; // base 45% (defined earlier) + small offset
+    bgImage.style.backgroundPosition = `center ${yPos}%`;
+  }, {passive:true});
+
+  // If user prefers reduced motion, pause heavy animations
+  const prefersReduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(prefersReduce){
+    // stop animation by removing handlers
+    window.removeEventListener('pointermove', onMove);
+  }
+
+})();
+</script>
+</body>
+</html>
